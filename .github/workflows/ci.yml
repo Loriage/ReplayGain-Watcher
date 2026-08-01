@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   test:
@@ -32,12 +31,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+        if: github.event_name == 'pull_request'
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
+        if: github.event_name == 'pull_request'
       - name: Build amd64 smoke image
         run: docker build --platform linux/amd64 --tag replaygain-watcher:ci .
       - name: Build all supported platforms
         uses: docker/build-push-action@v7
+        if: github.event_name == 'pull_request'
         with:
           context: .
           platforms: linux/amd64,linux/arm/v7,linux/arm64

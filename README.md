@@ -62,7 +62,7 @@ Open `http://localhost:3345`. Readiness is reported at `/health/ready`; metrics 
 
 If you are running from a checkout of this repository, replace `image` with `build: .` and start with `docker compose up -d --build`.
 
-The image is based on Debian trixie because its official repositories provide the `rsgain` package on amd64, armhf, and arm64. The published image targets `linux/amd64`, `linux/arm/v7`, and `linux/arm64`. `ffprobe` is installed for operational compatibility, while verification uses a read-only metadata parser and never writes tags.
+The image is based on Debian trixie because its official repositories provide the `rsgain` package on amd64, armhf, and arm64. The published image targets `linux/amd64`, `linux/arm/v7`, and `linux/arm64`. Verification uses a read-only metadata parser and never writes tags.
 
 The entrypoint applies the selected PUID/PGID, drops privileges before starting the application, and does not mount the Docker socket. Put the dashboard behind your existing authenticated reverse proxy before exposing it outside a trusted network.
 

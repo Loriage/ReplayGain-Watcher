@@ -32,7 +32,7 @@ LABEL org.opencontainers.image.title="ReplayGain Watcher" \
       org.opencontainers.image.licenses="MIT"
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates ffmpeg rsgain tini \
+    && apt-get install -y --no-install-recommends ca-certificates rsgain tini \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /usr/local/bin/pip* /usr/local/lib/python3.13/site-packages/pip \
               /usr/local/lib/python3.13/site-packages/pip-*.dist-info \
