@@ -39,7 +39,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository_owner }}/replaygain-watcher
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=nightly,enable=${{ github.ref == 'refs/heads/main' }}
             type=ref,event=tag
             type=sha,prefix=sha-
 
