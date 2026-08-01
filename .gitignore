@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+replaygain-data/
+replaygain-watcher.db
+replaygain-watcher.db-shm
+replaygain-watcher.db-wal

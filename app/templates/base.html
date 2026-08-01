@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} · ReplayGain Watcher</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
+  <script defer src="{{ url_for('static', path='htmx-lite.js') }}"></script>
+  <script defer src="{{ url_for('static', path='app.js') }}"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">ReplayGain <span>Watcher</span></a>
+    <nav aria-label="Primary navigation">
+      <a href="/" class="{{ 'active' if title == 'Dashboard' else '' }}">Dashboard</a>
+      <a href="/libraries" class="{{ 'active' if title == 'Libraries' else '' }}">Libraries</a>
+      <a href="/albums" class="{{ 'active' if title == 'Albums' else '' }}">Albums</a>
+      <a href="/jobs" class="{{ 'active' if title == 'Jobs' else '' }}">Jobs</a>
+    </nav>
+    <div class="topbar-status"><span class="dot {{ 'ok' if container.ready else 'warn' }}"></span>{{ 'Ready' if container.ready else 'Not ready' }}</div>
+  </header>
+  <main class="page-shell">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">ReplayGain Watcher {{ container.settings.app_version }} · monitoring only</footer>
+</body>
+</html>

@@ -1,0 +1,16 @@
+libraries:
+  - name: library-one
+    path: /libraries/library-one
+    enabled: true
+    scan_interval_seconds: 900
+    settle_seconds: 300
+
+  - name: library-two
+    path: /libraries/library-two
+    enabled: true
+    scan_interval_seconds: 900
+    settle_seconds: 300
+
+# Optional per-library overrides:
+#   include_extensions: [.flac, .mp3, .m4a]
+#   exclude_patterns: ["**/samples", ".stfolder"]

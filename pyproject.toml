@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "replaygain-watcher"
+version = "0.1.0"
+description = "A self-hosted monitor that safely applies ReplayGain to stable music albums."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiosqlite==0.20.0",
+    "alembic==1.14.1",
+    "fastapi==0.115.6",
+    "httpx==0.28.1",
+    "jinja2==3.1.5",
+    "mutagen==1.47.0",
+    "prometheus-client==0.21.1",
+    "pydantic-settings==2.7.1",
+    "python-multipart==0.0.20",
+    "pyyaml==6.0.2",
+    "sqlalchemy[asyncio]==2.0.51",
+    "uvicorn==0.34.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.4",
+    "pytest-asyncio==0.25.2",
+    "pytest-cov==6.0.0",
+    "ruff==0.9.2",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-ra"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

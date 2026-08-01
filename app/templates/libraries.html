@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-heading compact"><div><p class="eyebrow">CONFIGURED ROOTS</p><h1>Libraries</h1><p class="lede">Only paths declared at startup are eligible for processing.</p></div></div>
+<section class="panel"><div class="table-wrap"><table><thead><tr><th>Name</th><th>Path</th><th>Availability</th><th>Albums</th><th>Processed</th><th>Waiting</th><th>Failed</th><th>Last reconciliation</th></tr></thead><tbody>
+{% for library, counts in rows %}<tr><td><strong>{{ library.name }}</strong></td><td class="mono">{{ '/libraries/' ~ library.name if container.settings.redact_host_paths else library.path }}</td><td><span class="status status-{{ 'succeeded' if not library.last_error else 'failed' }}">{{ 'available' if not library.last_error else 'attention' }}</span></td><td>{{ counts.values()|sum }}</td><td>{{ counts.get('processed', 0) }}</td><td>{{ counts.get('waiting_for_stability', 0) + counts.get('queued', 0) + counts.get('processing', 0) + counts.get('changed', 0) }}</td><td>{{ counts.get('failed', 0) }}</td><td class="muted">{{ library.last_reconciliation_at.strftime('%Y-%m-%d %H:%M') if library.last_reconciliation_at else '—' }}</td></tr>{% if library.last_error %}<tr><td></td><td colspan="7" class="error-text">{{ library.last_error|safe_error(library, container) }}</td></tr>{% endif %}{% else %}<tr><td colspan="8" class="empty-state">No libraries configured.</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

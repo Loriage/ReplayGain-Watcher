@@ -1,0 +1,102 @@
+# ReplayGain Watcher
+
+ReplayGain Watcher is a small, self-hosted monitor for mounted music libraries. It discovers album directories, waits until their supported audio files stop changing, runs `rsgain easy <album-directory>`, verifies the generated tags, and keeps an auditable job history.
+
+The application is deliberately monitoring-oriented. It does not edit arbitrary tags, expose audio files, open a general-purpose tag editor, or depend on `rsgain --skip-existing` as its state store.
+
+## Quick start with Docker Compose
+
+1. Copy `config.example.yml` to `config.yml` and update the host paths in `docker-compose.yml` and `config.yml`.
+2. Create the writable data directory with the UID/GID used by the container:
+
+   ```text
+   mkdir -p replaygain-data
+   chown 1000:1000 replaygain-data
+   ```
+
+3. Start the service:
+
+   ```text
+   docker compose up -d --build
+   ```
+
+4. Open `http://localhost:8080`. Readiness is reported at `/health/ready`; metrics are available at `/metrics`.
+
+The container runs as UID/GID `1000:1000`, drops all Linux capabilities, enables `no-new-privileges`, and does not mount the Docker socket. Make sure the mounted music directories are writable by that identity. Put the dashboard behind your existing authenticated reverse proxy before exposing it outside a trusted network.
+
+The image is based on Debian trixie because its official repositories provide the `rsgain` package on amd64, armhf, and arm64. The published image targets `linux/amd64`, `linux/arm/v7`, and `linux/arm64`. `ffprobe` is installed for operational compatibility, while verification uses a read-only metadata parser and never writes tags.
+
+## Configuration
+
+Libraries are declared in the startup YAML file. HTTP requests cannot add a path or submit a path for processing. Environment settings can tune scan and job behavior:
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | `sqlite+aiosqlite:////data/replaygain-watcher.db` | SQLite database location |
+| `RECONCILIATION_INTERVAL_SECONDS` | `900` | Periodic source-of-truth scan |
+| `SETTLE_SECONDS` | `300` | Required stable interval before queueing |
+| `WORKER_CONCURRENCY` | `1` | Maximum concurrent rsgain jobs |
+| `JOB_TIMEOUT_SECONDS` | `14400` | Maximum analysis duration |
+| `JOB_TERMINATION_GRACE_SECONDS` | `30` | SIGTERM grace period before SIGKILL |
+| `CONFIG_CHANGE_POLICY` | `mark` | Mark or automatically requeue on config changes |
+| `RECOVERY_POLICY` | `requeue` | Requeue jobs interrupted by restart |
+| `UI_ACTIONS_ENABLED` | `false` | Enable guarded retry/requeue/cancel actions |
+| `LOG_RETENTION_DAYS` | `30` | Structured job-log retention |
+| `FOLLOW_SYMLINKS` | `false` | Follow symlinks during scans |
+| `STAY_ON_FILESYSTEM` | `true` | Do not cross filesystem devices |
+
+The source fingerprint uses sorted relative paths, file sizes, and nanosecond mtimes. It does not hash complete audio files during normal reconciliation. After a successful run, the fingerprint is rebuilt because ReplayGain tag writes can change file metadata; this prevents the watcher from reprocessing its own successful write.
+
+## Processing behavior
+
+- A periodic reconciliation is always the source of truth; filesystem events are not required.
+- A new or changed album must contain at least one supported file directly in the album directory.
+- Temporary suffixes such as `.part`, `.partial`, `.tmp`, `.download`, `.crdownload`, and `.!qB` postpone processing.
+- A complete album directory is passed to `rsgain`; individual tracks are never queued separately.
+- There is one active job per album, claimed atomically in SQLite before starting the subprocess.
+- stdout and stderr are streamed into structured `JobLog` records, with bounded tails retained on the job.
+- Successful jobs are valid only after every expected file has ReplayGain track gain and, when enabled, album gain.
+- Failed jobs remain visible and do not loop forever. A source change or an explicitly enabled retry can run them again.
+- At startup, jobs left in `running` state are marked interrupted and requeued according to `RECOVERY_POLICY`.
+
+## Monitoring API
+
+Read-only routes are available under `/api/v1`:
+
+```text
+GET /status
+GET /libraries
+GET /libraries/{id}
+GET /albums
+GET /albums/{id}
+GET /jobs
+GET /jobs/{id}
+GET /jobs/{id}/logs
+```
+
+Optional actions, hidden unless `UI_ACTIONS_ENABLED=true`, are reconciliation, retry, album requeue, and queued-job cancellation. They require the CSRF cookie/header pair and are rate-limited in-process. Use an authenticated reverse proxy for access control; the application intentionally does not pretend to be an identity provider.
+
+## Navidrome
+
+Keep ReplayGain Watcher and Navidrome as separate containers. The watcher needs read/write access to the music mounts; Navidrome can keep its own music mounts read-only. Schedule Navidrome's normal library scan after the typical settle plus processing window. ReplayGain Watcher does not use the Docker socket, restart Navidrome, or issue Navidrome API calls in the MVP.
+
+## Development
+
+The project has no frontend build chain. Install the package and development dependencies with Python 3.13, then run:
+
+```text
+python -m pip install -e ".[dev]"
+ruff check .
+pytest
+```
+
+The test suite uses temporary filesystem roots and mocked executables; it never requires a real music library. The CI workflow builds all three supported platforms with Buildx, generates an SPDX SBOM for the amd64 smoke image, and scans the image for vulnerabilities. A release build can be published with:
+
+```text
+docker buildx build \
+  --platform linux/amd64,linux/arm/v7,linux/arm64 \
+  --tag ghcr.io/OWNER/replaygain-watcher:latest \
+  --provenance=true --sbom=true --push .
+```
+
+Buildx may use QEMU for ARM targets; Docker documents `linux/arm/v7` as the platform spelling and supports emitting one multi-platform manifest from the comma-separated platform list.
