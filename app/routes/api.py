@@ -26,6 +26,24 @@ def _page(page: int, page_size: int) -> tuple[int, int]:
     return (page - 1) * page_size, page_size
 
 
+def _parse_optional_positive_int(value: str | None, parameter: str) -> int | None:
+    if value is None or not value.strip():
+        return None
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "invalid_filter", "message": f"{parameter} must be an integer"},
+        ) from exc
+    if parsed < 1:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "invalid_filter", "message": f"{parameter} must be positive"},
+        )
+    return parsed
+
+
 def _safe_error(value: str | None, library: Library, container) -> str | None:
     if value is None or not container.settings.redact_host_paths:
         return value
@@ -186,7 +204,7 @@ async def get_library(library_id: int, request: Request) -> LibraryResponse:
 @router.get("/albums", response_model=Page)
 async def list_albums(
     request: Request,
-    library_id: int | None = Query(default=None, ge=1),
+    library_id: str | None = Query(default=None, max_length=32),
     state: str | None = Query(default=None, min_length=1, max_length=32),
     path: str | None = Query(default=None, max_length=4096),
     processed_on: date | None = None,
@@ -194,12 +212,14 @@ async def list_albums(
     page_size: Annotated[int, Query(ge=1, le=100)] = 25,
 ) -> Page:
     container = _container(request)
+    library_filter_id = _parse_optional_positive_int(library_id, "library_id")
     allowed_states = {
         "discovered",
         "waiting_for_stability",
         "queued",
         "processing",
         "processed",
+        "skipped",
         "changed",
         "failed",
         "ignored",
@@ -213,8 +233,8 @@ async def list_albums(
         query = select(Album, Library).join(Library, Library.id == Album.library_id)
         count_query = select(func.count(Album.id))
         filters = []
-        if library_id is not None:
-            filters.append(Album.library_id == library_id)
+        if library_filter_id is not None:
+            filters.append(Album.library_id == library_filter_id)
         if state:
             filters.append(Album.state == state)
         if path:

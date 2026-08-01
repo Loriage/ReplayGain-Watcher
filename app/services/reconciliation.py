@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.config import Settings
 from app.models import Album, AudioFile, Job, Library, utcnow
 from app.services.filesystem import AlbumObservation, scan_library
+from app.services.verification import MetadataVerifier
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class ReconciliationResult:
     changed: int = 0
     waiting: int = 0
     queued: int = 0
+    skipped: int = 0
     missing: int = 0
     renamed: int = 0
     unsupported_files: int = 0
@@ -51,6 +53,7 @@ class Reconciler:
         self.session_factory = session_factory
         self.settings = settings
         self.rsgain_version = rsgain_version
+        self.verifier = MetadataVerifier()
 
     async def sync_configured_libraries(self) -> None:
         """Upsert startup configuration and disable removed declarations."""
@@ -110,6 +113,10 @@ class Reconciler:
             library = await session.get(Library, library_id)
             if library is None:
                 raise ValueError(f"library {library_id} does not exist")
+            log_path = (
+                f"/libraries/{library.name}" if self.settings.redact_host_paths else library.path
+            )
+            logger.info("library scan started: library=%s path=%s", library.name, log_path)
             scan = await asyncio.to_thread(
                 scan_library,
                 Path(library.path),
@@ -131,6 +138,12 @@ class Reconciler:
             library.last_error = "\n".join(scan.errors) if scan.errors else None
             if scan.errors and not scan.albums:
                 await session.commit()
+                logger.warning(
+                    "library scan failed: library=%s errors=%d duration=%.2fs",
+                    library.name,
+                    len(result.errors),
+                    result.duration_seconds,
+                )
                 return result
 
             albums = list(
@@ -198,15 +211,19 @@ class Reconciler:
                     )
                 seen_paths.add(relative_path)
                 await self._upsert_audio_files(session, album, observation, now)
-                if await self._maybe_queue(
+                outcome = await self._maybe_queue(
                     session,
                     album,
                     observation,
                     config_fingerprint,
                     now,
+                    Path(library.path),
                     library.settle_seconds,
-                ):
+                )
+                if outcome == "queued":
                     result.queued += 1
+                elif outcome == "skipped":
+                    result.skipped += 1
                 if album.state == "waiting_for_stability":
                     result.waiting += 1
 
@@ -231,6 +248,20 @@ class Reconciler:
 
             await self._mark_configuration_staleness(session, albums, config_fingerprint, result)
             await session.commit()
+            logger.info(
+                "library scan completed: library=%s folders_discovered=%d folders_changed=%d "
+                "folders_waiting=%d jobs_queued=%d folders_skipped=%d folders_missing=%d "
+                "errors=%d duration=%.2fs",
+                library.name,
+                result.discovered,
+                result.changed,
+                result.waiting,
+                result.queued,
+                result.skipped,
+                result.missing,
+                len(result.errors),
+                result.duration_seconds,
+            )
             return result
 
     async def _update_existing_album(
@@ -321,6 +352,26 @@ class Reconciler:
             if relative_path not in observed_paths:
                 await session.delete(stored)
 
+    async def _mark_audio_files_verified(
+        self,
+        session: AsyncSession,
+        album: Album,
+        observation: AlbumObservation,
+    ) -> None:
+        current = {
+            item.relative_path: item
+            for item in (
+                await session.scalars(select(AudioFile).where(AudioFile.album_id == album.id))
+            ).all()
+        }
+        for item in observation.files:
+            stored = current.get(item.relative_path)
+            if stored is None:
+                continue
+            stored.replaygain_track_gain_present = True
+            if self.settings.album_gain_enabled:
+                stored.replaygain_album_gain_present = True
+
     async def _maybe_queue(
         self,
         session: AsyncSession,
@@ -328,29 +379,33 @@ class Reconciler:
         observation: AlbumObservation,
         config_fingerprint: str,
         now: datetime,
+        library_path: Path,
         settle_seconds: int,
-    ) -> bool:
+    ) -> str | None:
         if observation.has_temporary_files or not album.stable_since:
-            return False
+            return None
         if _age_seconds(album.stable_since, now) < settle_seconds:
-            return False
+            return None
         if album.state == "failed":
-            return False
+            return None
         source_needs_processing = (
             album.processed_source_fingerprint != observation.source_fingerprint
         )
-        config_needs_processing = album.processed_config_fingerprint != config_fingerprint
+        config_needs_processing = (
+            album.processed_config_fingerprint is not None
+            and album.processed_config_fingerprint != config_fingerprint
+        )
         if not source_needs_processing and not config_needs_processing:
-            if album.state not in {"missing", "failed"}:
+            if album.state not in {"missing", "failed", "skipped"}:
                 album.state = "processed"
-            return False
+            return None
         if (
             config_needs_processing
             and not source_needs_processing
             and self.settings.config_change_policy == "mark"
         ):
             album.state = "changed"
-            return False
+            return None
 
         active = await session.execute(
             select(Job.id, Job.status).where(
@@ -360,7 +415,22 @@ class Reconciler:
         active_row = active.first()
         if active_row is not None:
             album.state = "processing" if active_row.status == "running" else "queued"
-            return False
+            return None
+        if source_needs_processing and not config_needs_processing:
+            verification = await asyncio.to_thread(
+                self.verifier.verify,
+                [library_path / item.relative_path for item in observation.files],
+                self.settings.album_gain_enabled,
+            )
+            if verification.ok:
+                album.processed_source_fingerprint = observation.source_fingerprint
+                album.processed_config_fingerprint = config_fingerprint
+                album.config_fingerprint = config_fingerprint
+                album.processed_at = now
+                album.state = "skipped"
+                album.last_error = None
+                await self._mark_audio_files_verified(session, album, observation)
+                return "skipped"
         reason = "discovered"
         if album.processed_source_fingerprint is not None:
             reason = "source_changed" if source_needs_processing else "config_changed"
@@ -382,11 +452,11 @@ class Reconciler:
         except IntegrityError:
             logger.info("job already queued for album %s", album.id)
             album.state = "queued"
-            return False
+            return None
         album.state = "queued"
         album.last_error = None
         album.last_job_id = job.id
-        return True
+        return "queued"
 
     async def _mark_configuration_staleness(
         self,

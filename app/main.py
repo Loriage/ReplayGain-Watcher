@@ -6,7 +6,9 @@ import json
 import logging
 import secrets
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
@@ -25,10 +27,19 @@ from app.state import AppContainer
 
 
 class JsonFormatter(logging.Formatter):
+    def __init__(self, timezone_name: str) -> None:
+        super().__init__()
+        try:
+            self.timezone = ZoneInfo(timezone_name)
+        except ZoneInfoNotFoundError:
+            self.timezone = UTC
+
     def format(self, record: logging.LogRecord) -> str:
         return json.dumps(
             {
-                "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
+                "timestamp": datetime.fromtimestamp(record.created, UTC)
+                .astimezone(self.timezone)
+                .isoformat(timespec="seconds"),
                 "level": record.levelname,
                 "logger": record.name,
                 "message": record.getMessage(),
@@ -37,9 +48,9 @@ class JsonFormatter(logging.Formatter):
         )
 
 
-def configure_logging(level: str) -> None:
+def configure_logging(level: str, timezone_name: str) -> None:
     handler = logging.StreamHandler()
-    handler.setFormatter(JsonFormatter())
+    handler.setFormatter(JsonFormatter(timezone_name))
     root = logging.getLogger()
     root.handlers.clear()
     root.addHandler(handler)
@@ -74,7 +85,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings: Settings = app.state.settings
-    configure_logging(settings.log_level)
+    configure_logging(settings.log_level, settings.tz)
     engine = create_database_engine(settings)
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -88,9 +99,11 @@ async def lifespan(app: FastAPI):
     database_available = False
     try:
         await run_migrations(settings)
+        configure_logging(settings.log_level, settings.tz)
         database_available = await check_database(engine)
         await reconciler.sync_configured_libraries()
     except Exception as exc:
+        configure_logging(settings.log_level, settings.tz)
         initialization_error = str(exc)
         logging.getLogger(__name__).exception("application initialization failed")
 

@@ -1,5 +1,5 @@
 <section id="summary" class="summary-grid" hx-get="/partials/summary" hx-trigger="every 10s" hx-swap="outerHTML">
   <div class="metric-card"><span class="metric-label">Libraries</span><strong class="metric-value">{{ library_count }}</strong><small>configured roots</small></div>
   <div class="metric-card"><span class="metric-label">Queue</span><strong class="metric-value">{{ queue_depth }}</strong><small>{% if running %}1 folder processing{% else %}nothing processing{% endif %}</small></div>
-  <div class="metric-card"><span class="metric-label">Processed folders</span><strong class="metric-value">{{ album_counts.get('processed', 0) }}</strong><small>{{ album_counts.get('failed', 0) }} failed · {{ album_counts.get('waiting_for_stability', 0) }} waiting for import</small></div>
+  <div class="metric-card"><span class="metric-label">Processed folders</span><strong class="metric-value">{{ album_counts.get('processed', 0) }}</strong><small>{{ album_counts.get('skipped', 0) }} skipped · {{ album_counts.get('failed', 0) }} failed · {{ album_counts.get('waiting_for_stability', 0) }} waiting for import</small></div>
 </section>

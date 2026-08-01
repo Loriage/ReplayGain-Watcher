@@ -56,9 +56,11 @@ class Scheduler:
 
     async def trigger(self, library_id: int | None = None) -> None:
         if library_id is None:
+            logger.info("manual scan requested: all libraries")
             self._trigger_all = True
             self._triggered_library_ids.clear()
         elif not self._trigger_all:
+            logger.info("manual scan requested: library_id=%s", library_id)
             self._triggered_library_ids.add(library_id)
         self._trigger.set()
 
@@ -91,6 +93,15 @@ class Scheduler:
                     ]
                 for result in results:
                     self.metrics.reconciliation_duration.observe(result.duration_seconds)
+                logger.info(
+                    "reconciliation completed: libraries=%d folders_discovered=%d "
+                    "jobs_queued=%d folders_skipped=%d errors=%d",
+                    len(results),
+                    sum(result.discovered for result in results),
+                    sum(result.queued for result in results),
+                    sum(result.skipped for result in results),
+                    sum(len(result.errors) for result in results),
+                )
                 await self.metrics.refresh(self.session_factory)
                 await self._purge_old_logs()
             except asyncio.CancelledError:

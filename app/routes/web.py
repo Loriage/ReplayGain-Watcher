@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
@@ -32,11 +34,27 @@ def _clean_output(value: str | None) -> str:
 
 templates.env.filters["clean_output"] = _clean_output
 
+
+def _local_datetime(value: datetime | None, timezone_name: str) -> str:
+    if value is None:
+        return "Not available"
+    try:
+        timezone = ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        timezone = UTC
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(timezone).strftime("%Y-%m-%d %H:%M:%S")
+
+
+templates.env.filters["local_datetime"] = _local_datetime
+
 _STATE_LABELS = {
     "waiting_for_stability": "Waiting for import",
     "queued": "Queued",
     "processing": "Processing",
     "processed": "Processed",
+    "skipped": "Skipped",
     "changed": "Changed",
     "failed": "Failed",
     "missing": "Missing",
@@ -55,6 +73,24 @@ def _label(value: str | None) -> str:
 
 
 templates.env.filters["label"] = _label
+
+
+def _parse_optional_positive_int(value: str | None, parameter: str) -> int | None:
+    if value is None or not value.strip():
+        return None
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "invalid_filter", "message": f"{parameter} must be an integer"},
+        ) from exc
+    if parsed < 1:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "invalid_filter", "message": f"{parameter} must be positive"},
+        )
+    return parsed
 
 
 async def _dashboard_data(container):
@@ -144,15 +180,16 @@ async def libraries_page(request: Request):
 @router.get("/albums")
 async def albums_page(
     request: Request,
-    library_id: int | None = Query(default=None, ge=1),
+    library_id: str | None = Query(default=None, max_length=32),
     state: str | None = Query(default=None, max_length=32),
     page: int = Query(default=1, ge=1),
 ):
     container = request.app.state.container
     page_size = 50
+    selected_library = _parse_optional_positive_int(library_id, "library_id")
     filters = []
-    if library_id:
-        filters.append(Album.library_id == library_id)
+    if selected_library is not None:
+        filters.append(Album.library_id == selected_library)
     if state:
         filters.append(Album.state == state)
     async with container.session_factory() as session:
@@ -179,7 +216,7 @@ async def albums_page(
             "total": int(total),
             "page": page,
             "page_size": page_size,
-            "selected_library": library_id,
+            "selected_library": selected_library,
             "selected_state": state,
             "title": "Folders",
         },

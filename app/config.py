@@ -78,6 +78,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = Field(default=8080, ge=1, le=65535)
     log_level: str = "INFO"
+    tz: str = "UTC"
     database_url: str = "sqlite+aiosqlite:////config/replaygain-watcher.db"
     config_file: Path | None = Path("/config/config.yml")
 

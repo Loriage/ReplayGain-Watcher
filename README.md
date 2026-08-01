@@ -76,6 +76,7 @@ Libraries are declared in the startup YAML file. HTTP requests cannot add a path
 | --- | --- | --- |
 | `PUID` | `1000` | UID used to run the container process |
 | `PGID` | `1000` | GID used to run the container process |
+| `TZ` | `UTC` | Timezone used for dashboard dates and container log timestamps |
 | `CONFIG_FILE` | `/config/config.yml` | Startup YAML file containing the declared libraries |
 | `DATABASE_URL` | `sqlite+aiosqlite:////config/replaygain-watcher.db` | SQLite database location |
 | `RECONCILIATION_INTERVAL_SECONDS` | `900` | Periodic source-of-truth scan |
@@ -98,6 +99,7 @@ The source fingerprint uses sorted relative paths, file sizes, and nanosecond mt
 - A new or changed folder must contain at least one supported file directly in that folder.
 - Temporary suffixes such as `.part`, `.partial`, `.tmp`, `.download`, `.crdownload`, and `.!qB` postpone processing.
 - A complete folder is passed to `rsgain`; individual tracks are never queued separately.
+- A complete folder whose files already contain the required ReplayGain tags is marked `Skipped` and is not passed to `rsgain`.
 - There is one active job per folder, claimed atomically in SQLite before starting the subprocess.
 - stdout and stderr are streamed into structured `JobLog` records, with bounded tails retained on the job.
 - Successful jobs are valid only after every expected file has ReplayGain track gain and, when enabled, album gain.

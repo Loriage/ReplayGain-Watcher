@@ -9,6 +9,12 @@ from sqlalchemy import select
 
 from app.models import Album, Job, Library, utcnow
 from app.services.reconciliation import Reconciler
+from app.services.verification import VerificationResult
+
+
+class AlreadyTaggedVerifier:
+    def verify(self, files, album_gain_enabled):
+        return VerificationResult(ok=True, checked_files=len(files))
 
 
 async def _add_library(session_factory, path: Path, settle_seconds: int = 0) -> Library:
@@ -71,6 +77,35 @@ async def test_partial_copy_is_not_queued(db, tmp_path: Path):
         album = await session.scalar(select(Album).where(Album.library_id == library.id))
         assert album.temporary_files_present is True
         assert album.state == "waiting_for_stability"
+
+
+@pytest.mark.asyncio
+async def test_already_tagged_album_is_skipped_without_a_job(db, tmp_path: Path):
+    settings, _engine, session_factory = db
+    library_root = tmp_path / "library"
+    album_dir = library_root / "Album"
+    album_dir.mkdir(parents=True)
+    (album_dir / "01.flac").write_bytes(b"already tagged")
+    library = await _add_library(session_factory, library_root, settle_seconds=0)
+    reconciler = Reconciler(session_factory, settings, "rsgain 3.6")
+    reconciler.verifier = AlreadyTaggedVerifier()
+
+    result = await reconciler.reconcile_library(library.id)
+
+    assert result.queued == 0
+    assert result.skipped == 1
+    async with session_factory() as session:
+        album = await session.scalar(select(Album).where(Album.library_id == library.id))
+        jobs = (await session.scalars(select(Job))).all()
+        assert album.state == "skipped"
+        assert album.processed_source_fingerprint == album.source_fingerprint
+        assert len(jobs) == 0
+
+    second = await reconciler.reconcile_library(library.id)
+    assert second.queued == 0
+    async with session_factory() as session:
+        album = await session.scalar(select(Album).where(Album.library_id == library.id))
+        assert album.state == "skipped"
 
 
 @pytest.mark.asyncio

@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+import shlex
 import shutil
 import signal
 from collections import deque
@@ -230,6 +231,21 @@ class JobRunner:
                 return
 
             command = [self.settings.rsgain_binary, "easy", str(album_path)]
+            log_album_path = (
+                f"/libraries/{library.name}/{album.relative_path}"
+                if self.settings.redact_host_paths
+                else str(album_path)
+            )
+            log_command = shlex.join(
+                [
+                    Path(self.settings.rsgain_binary).name
+                    if self.settings.redact_host_paths
+                    else self.settings.rsgain_binary,
+                    "easy",
+                    log_album_path,
+                ]
+            )
+            logger.info("rsgain command started: %s", log_command)
             roots = [Path(library.path)]
             process: asyncio.subprocess.Process | None = None
             heartbeat_task: asyncio.Task[None] | None = None
@@ -264,6 +280,12 @@ class JobRunner:
                 await capture_task
                 if process.returncode is None:
                     await process.wait()
+                logger.info(
+                    "rsgain command finished: library=%s folder=%s exit_code=%s",
+                    library.name,
+                    album.relative_path,
+                    process.returncode,
+                )
                 if timed_out:
                     job.stdout_tail = "\n".join(stdout_tail)
                     job.stderr_tail = "\n".join(stderr_tail)
@@ -371,6 +393,8 @@ class JobRunner:
                     _tail_append(stdout_tail, sanitized, self.settings.log_tail_lines)
                 else:
                     _tail_append(stderr_tail, sanitized, self.settings.log_tail_lines)
+                if sanitized:
+                    logger.info("rsgain %s: %s", stream, sanitized)
                 pending_logs.append(
                     JobLog(job_id=job.id, stream=stream, level="INFO", message=sanitized)
                 )

@@ -27,18 +27,14 @@ a:hover { text-decoration: underline; }
 nav { display: flex; gap: 4px; align-self: stretch; align-items: center; }
 nav a { color: var(--muted); padding: 8px 10px; border-radius: 5px; font-size: 14px; }
 nav a:hover, nav a.active { color: var(--ink); background: #eef2f1; text-decoration: none; }
-.topbar-status { margin-left: auto; color: var(--muted); font-size: 13px; display: flex; gap: 8px; align-items: center; }
-.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
-.dot.ok { background: #2d9674; }
-.dot.warn { background: var(--warning); }
 
 .page-shell { max-width: 1240px; margin: 0 auto; padding: 42px 28px 56px; }
 .page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
 .page-heading.compact { margin-bottom: 22px; }
+.page-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
 h1, h2 { margin: 0; letter-spacing: -0.025em; }
 h1 { font-size: clamp(28px, 3vw, 38px); line-height: 1.1; }
 h2 { font-size: 18px; }
-.eyebrow { color: var(--accent); font-size: 11px; font-weight: 750; letter-spacing: .08em; margin: 0 0 7px; }
 .lede { color: var(--muted); max-width: 720px; line-height: 1.55; margin: 10px 0 0; }
 
 .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
@@ -67,7 +63,7 @@ tbody tr:hover { background: #fbfcfc; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
 .path-cell { max-width: 280px; }
 .status { display: inline-flex; align-items: center; border-radius: 4px; padding: 4px 7px; background: #eef1f2; color: #52606b; font-size: 11px; font-weight: 700; white-space: normal; }
-.status-succeeded, .status-processed { background: var(--accent-soft); color: var(--accent); }
+.status-succeeded, .status-processed, .status-skipped { background: var(--accent-soft); color: var(--accent); }
 .status-queued, .status-waiting_for_stability, .status-discovered, .status-changed { background: var(--warning-soft); color: var(--warning); }
 .status-running, .status-processing { background: #e8eef9; color: #3c6199; }
 .status-failed, .status-missing, .status-interrupted { background: var(--danger-soft); color: var(--danger); }
@@ -110,8 +106,8 @@ button:disabled { background: #aeb8ba; border-color: #aeb8ba; cursor: not-allowe
 @media (max-width: 570px) {
   .topbar-inner { min-height: 70px; flex-wrap: wrap; padding: 14px 20px; }
   nav { order: 3; width: 100%; height: auto; justify-content: space-between; }
-  .topbar-status { margin-left: auto; }
   .page-heading { align-items: flex-start; flex-direction: column; }
+  .page-toolbar { align-items: flex-start; flex-direction: column; }
   .summary-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .metric-card { padding: 13px; }
   .metric-value { font-size: 23px; }

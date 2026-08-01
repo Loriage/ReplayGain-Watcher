@@ -105,12 +105,15 @@ async def test_empty_monitoring_pages_and_lists_are_valid(tmp_path: Path):
             paths = [
                 "/libraries",
                 "/albums",
+                "/albums?library_id=&state=",
                 "/jobs",
                 "/api/v1/libraries",
                 "/api/v1/albums",
+                "/api/v1/albums?library_id=",
                 "/api/v1/jobs",
             ]
             responses = [await client.get(path) for path in paths]
             assert all(response.status_code == 200 for response in responses)
             assert "Folders" in responses[1].text
+            assert responses[2].status_code == 200
             assert responses[-1].json()["items"] == []
