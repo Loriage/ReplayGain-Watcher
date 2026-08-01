@@ -161,7 +161,7 @@ ReplayGain Watcher is released under the [MIT License](LICENSE).
 
 ## Minidisc
 
-Looking for a Navidrome client on iOS? [Minidisc](https://github.com/Loriage/Minidisc) is a native iOS player with ReplayGain support. [See it in action at minidisc.dev](https://minidisc.dev).
+Looking for an iOS client for Navidrome? [Minidisc](https://github.com/Loriage/Minidisc) is an opinionated, native iOS music player for Navidrome, Subsonic, and OpenSubsonic servers, styled after Apple Music, with built-in Lidarr integration and ReplayGain support. [See it in action at minidisc.dev](https://minidisc.dev).
 
 <p align="center">
   <a href="https://minidisc.dev">
