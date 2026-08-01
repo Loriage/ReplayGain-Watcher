@@ -38,8 +38,8 @@ RUN apt-get update \
               /usr/local/lib/python3.13/site-packages/pip-*.dist-info \
     && groupadd --gid 1000 app \
     && useradd --uid 1000 --gid app --create-home --shell /usr/sbin/nologin app \
-    && mkdir -p /data /app \
-    && chown -R app:app /data /app
+    && mkdir -p /config /app \
+    && chown -R app:app /config /app
 
 WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
@@ -49,11 +49,9 @@ COPY --chown=app:app alembic ./alembic
 
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    DATABASE_URL="sqlite+aiosqlite:////data/replaygain-watcher.db" \
-    CONFIG_FILE="/app/config.yml"
+    PYTHONDONTWRITEBYTECODE=1
 
-VOLUME ["/data"]
+VOLUME ["/config"]
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/ready')"

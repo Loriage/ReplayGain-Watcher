@@ -4,27 +4,102 @@ ReplayGain Watcher is a small, self-hosted monitor for mounted music libraries. 
 
 The application is deliberately monitoring-oriented. It does not edit arbitrary tags, expose audio files, open a general-purpose tag editor, or depend on `rsgain --skip-existing` as its state store.
 
-## Quick start with Docker Compose
+## Quick Start
 
-1. Copy `config.example.yml` to `config.yml` and update the host paths in `docker-compose.yml` and `config.yml`.
-2. Create the writable data directory with the UID/GID used by the container:
+### Minimal setup
 
-   ```text
-   mkdir -p replaygain-data
-   chown 1000:1000 replaygain-data
-   ```
+Create a `docker-compose.yml`:
 
-3. Start the service:
+```yaml
+services:
+  replaygain-watcher:
+    image: ghcr.io/loriage/replaygain-watcher:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config:/config
+      - ./data/library-one:/libraries/library-one:rw
+```
 
-   ```text
-   docker compose up -d --build
-   ```
+Create the host directories before starting:
 
-4. Open `http://localhost:8080`. Readiness is reported at `/health/ready`; metrics are available at `/metrics`.
+```text
+mkdir -p config data/library-one
+```
 
-The container runs as UID/GID `1000:1000`, drops all Linux capabilities, enables `no-new-privileges`, and does not mount the Docker socket. Make sure the mounted music directories are writable by that identity. Put the dashboard behind your existing authenticated reverse proxy before exposing it outside a trusted network.
+Create `config/config.yml`:
+
+```yaml
+libraries:
+  - name: library-one
+    path: /libraries/library-one
+```
+
+The `./config` directory is mounted at `/config` and stores both `config.yml` and the ReplayGain Watcher database. Change `./data/library-one` to the host path of your first music library, but keep `/libraries/library-one` in `config/config.yml`.
+
+Make sure `./config` and the music library are writable by UID/GID `1000:1000`, then start the service:
+
+```text
+docker compose up -d
+```
+
+Open `http://localhost:8080`. Readiness is reported at `/health/ready`; metrics are available at `/metrics`.
+
+### Complete setup
+
+For two libraries, explicit runtime settings, automatic restarts, and the container hardening options used by the project, use:
+
+```yaml
+services:
+  replaygain-watcher:
+    image: ghcr.io/loriage/replaygain-watcher:latest
+    container_name: replaygain-watcher
+    restart: unless-stopped
+    user: "1000:1000"
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: Europe/Paris
+      RECONCILIATION_INTERVAL_SECONDS: "900"
+      SETTLE_SECONDS: "300"
+      WORKER_CONCURRENCY: "1"
+      UI_ACTIONS_ENABLED: "false"
+      LOG_LEVEL: INFO
+    volumes:
+      - ./config:/config
+      - ./data/library-one:/libraries/library-one:rw
+      - ./data/library-two:/libraries/library-two:rw
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+```
+
+Create `config/config.yml` with both container paths:
+
+```yaml
+libraries:
+  - name: library-one
+    path: /libraries/library-one
+    enabled: true
+    scan_interval_seconds: 900
+    settle_seconds: 300
+
+  - name: library-two
+    path: /libraries/library-two
+    enabled: true
+    scan_interval_seconds: 900
+    settle_seconds: 300
+```
+
+Change only the host-side paths under `./data` when your libraries live elsewhere. If you are running from a checkout of this repository, replace `image` with `build: .` and start with `docker compose up -d --build`.
 
 The image is based on Debian trixie because its official repositories provide the `rsgain` package on amd64, armhf, and arm64. The published image targets `linux/amd64`, `linux/arm/v7`, and `linux/arm64`. `ffprobe` is installed for operational compatibility, while verification uses a read-only metadata parser and never writes tags.
+
+The container runs as UID/GID `1000:1000`, drops all Linux capabilities, enables `no-new-privileges`, and does not mount the Docker socket. Put the dashboard behind your existing authenticated reverse proxy before exposing it outside a trusted network.
 
 ## Configuration
 
@@ -32,7 +107,8 @@ Libraries are declared in the startup YAML file. HTTP requests cannot add a path
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | `sqlite+aiosqlite:////data/replaygain-watcher.db` | SQLite database location |
+| `CONFIG_FILE` | `/config/config.yml` | Startup YAML file containing the declared libraries |
+| `DATABASE_URL` | `sqlite+aiosqlite:////config/replaygain-watcher.db` | SQLite database location |
 | `RECONCILIATION_INTERVAL_SECONDS` | `900` | Periodic source-of-truth scan |
 | `SETTLE_SECONDS` | `300` | Required stable interval before queueing |
 | `WORKER_CONCURRENCY` | `1` | Maximum concurrent rsgain jobs |

@@ -78,8 +78,8 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = Field(default=8080, ge=1, le=65535)
     log_level: str = "INFO"
-    database_url: str = "sqlite+aiosqlite:////data/replaygain-watcher.db"
-    config_file: Path | None = Path("/app/config.yml")
+    database_url: str = "sqlite+aiosqlite:////config/replaygain-watcher.db"
+    config_file: Path | None = Path("/config/config.yml")
 
     rsgain_binary: str = "rsgain"
     ffprobe_binary: str = "ffprobe"

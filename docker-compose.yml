@@ -4,7 +4,7 @@ services:
       context: .
       args:
         OCI_VERSION: "0.1.0"
-    image: ghcr.io/OWNER/replaygain-watcher:latest
+    image: ghcr.io/loriage/replaygain-watcher:latest
     container_name: replaygain-watcher
     restart: unless-stopped
     user: "1000:1000"
@@ -12,17 +12,15 @@ services:
       - "8080:8080"
     environment:
       TZ: Europe/Paris
-      DATABASE_URL: sqlite+aiosqlite:////data/replaygain-watcher.db
       RECONCILIATION_INTERVAL_SECONDS: "900"
       SETTLE_SECONDS: "300"
       WORKER_CONCURRENCY: "1"
       UI_ACTIONS_ENABLED: "false"
       LOG_LEVEL: INFO
     volumes:
-      - ./replaygain-data:/data
-      - /srv/music/library1:/libraries/library-one:rw
-      - /srv/music/library2:/libraries/library-two:rw
-      - ./config.yml:/app/config.yml:ro
+      - ./config:/config
+      - ./data/library-one:/libraries/library-one:rw
+      - ./data/library-two:/libraries/library-two:rw
     security_opt:
       - no-new-privileges:true
     cap_drop:
