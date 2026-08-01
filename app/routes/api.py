@@ -391,6 +391,26 @@ async def run_reconciliation(request: Request) -> dict[str, str]:
     return {"status": "queued"}
 
 
+@router.post("/libraries/{library_id}/scan", status_code=202)
+async def scan_library(library_id: int, request: Request) -> dict[str, str | int]:
+    _admin_guard(request)
+    container = _container(request)
+    if container.scheduler is None:
+        raise HTTPException(
+            503, detail={"code": "not_ready", "message": "scheduler is unavailable"}
+        )
+    async with container.session_factory() as session:
+        library = await session.get(Library, library_id)
+        if library is None:
+            raise HTTPException(404, detail={"code": "not_found", "message": "library not found"})
+        if not library.enabled:
+            raise HTTPException(
+                409, detail={"code": "disabled", "message": "library is disabled"}
+            )
+    await container.scheduler.trigger(library_id)
+    return {"status": "queued", "library_id": library_id}
+
+
 @router.post("/jobs/{job_id}/retry", status_code=202)
 async def retry_job(job_id: int, request: Request) -> dict[str, str]:
     _admin_guard(request)

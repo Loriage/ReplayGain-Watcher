@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from fastapi import APIRouter, Query, Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
-from app.models import Album, Job, JobLog, Library
+from app.models import Album, Job, Library
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
@@ -21,6 +22,39 @@ def _safe_error(value, library, container):
 
 
 templates.env.filters["safe_error"] = _safe_error
+
+_ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+
+
+def _clean_output(value: str | None) -> str:
+    return _ANSI_ESCAPE.sub("", value or "").replace("\r", "")
+
+
+templates.env.filters["clean_output"] = _clean_output
+
+_STATE_LABELS = {
+    "waiting_for_stability": "Waiting for import",
+    "queued": "Queued",
+    "processing": "Processing",
+    "processed": "Processed",
+    "changed": "Changed",
+    "failed": "Failed",
+    "missing": "Missing",
+    "discovered": "Discovered",
+    "ignored": "Ignored",
+    "succeeded": "Succeeded",
+    "cancelled": "Cancelled",
+    "interrupted": "Interrupted",
+}
+
+
+def _label(value: str | None) -> str:
+    if not value:
+        return "—"
+    return _STATE_LABELS.get(value, value.replace("_", " ").capitalize())
+
+
+templates.env.filters["label"] = _label
 
 
 async def _dashboard_data(container):
@@ -147,7 +181,7 @@ async def albums_page(
             "page_size": page_size,
             "selected_library": library_id,
             "selected_state": state,
-            "title": "Albums",
+            "title": "Folders",
         },
     )
 
@@ -202,14 +236,6 @@ async def job_detail(job_id: int, request: Request):
                 .where(Job.id == job_id)
             )
         ).first()
-        logs = (
-            await session.scalars(
-                select(JobLog)
-                .where(JobLog.job_id == job_id)
-                .order_by(JobLog.timestamp.asc())
-                .limit(500)
-            )
-        ).all()
     return templates.TemplateResponse(
         request=request,
         name="job_detail.html",
@@ -217,7 +243,6 @@ async def job_detail(job_id: int, request: Request):
             "request": request,
             "container": container,
             "row": row,
-            "logs": logs,
             "title": f"Job {job_id}",
         },
     )

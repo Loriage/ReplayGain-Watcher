@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import shutil
 import signal
 from collections import deque
@@ -26,6 +27,12 @@ from app.services.path_security import UnsafePathError, resolve_album_path
 from app.services.verification import MetadataVerifier, VerificationResult
 
 logger = logging.getLogger(__name__)
+
+_ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+
+
+def _clean_output(value: str) -> str:
+    return _ANSI_ESCAPE.sub("", value).replace("\r", "")
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,17 +57,19 @@ async def detect_rsgain(binary: str) -> ToolStatus:
         output, _ = await asyncio.wait_for(process.communicate(), timeout=10)
     except (TimeoutError, OSError) as exc:
         return ToolStatus(False, "unavailable", f"could not execute rsgain: {exc}")
-    text = output.decode("utf-8", errors="replace").strip()
+    text = _ANSI_ESCAPE.sub("", output.decode("utf-8", errors="replace")).strip()
     if process.returncode != 0:
         return ToolStatus(
             False, text or "unavailable", f"rsgain --version exited {process.returncode}"
         )
-    version = text.splitlines()[0][:128] if text else "unknown"
+    first_line = next((line.strip() for line in text.splitlines() if line.strip()), "unknown")
+    match = re.search(r"\brsgain\s+([0-9][^\s]*)", first_line, flags=re.IGNORECASE)
+    version = f"rsgain {match.group(1)}" if match else first_line[:128]
     return ToolStatus(True, version)
 
 
 def _tail_append(target: deque[str], line: str, max_lines: int) -> None:
-    target.append(line.rstrip("\n"))
+    target.append(_clean_output(line).rstrip("\n"))
     while len(target) > max_lines:
         target.popleft()
 
@@ -355,7 +364,7 @@ class JobRunner:
                     completed_streams += 1
                     continue
                 stream, message = item
-                sanitized = message
+                sanitized = _clean_output(message)
                 for root in roots:
                     sanitized = sanitized.replace(str(root), "<library>")
                 if stream == "stdout":

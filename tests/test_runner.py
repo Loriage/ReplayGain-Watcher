@@ -6,13 +6,25 @@ import pytest
 from sqlalchemy import select
 
 from app.models import Album, Job, JobLog, Library, utcnow
-from app.services.runner import JobRunner
+from app.services.runner import JobRunner, detect_rsgain
 from app.services.verification import VerificationResult
 
 
 class PassingVerifier:
     def verify(self, files, album_gain_enabled):
         return VerificationResult(ok=True, checked_files=len(files))
+
+
+@pytest.mark.asyncio
+async def test_detect_rsgain_returns_a_readable_version(tmp_path: Path):
+    script = tmp_path / "fake-rsgain-version"
+    script.write_text("#!/bin/sh\nprintf '\\033[1;32mrsgain\\033[0m 3.6 - using:\\n'\n")
+    script.chmod(0o755)
+
+    status = await detect_rsgain(str(script))
+
+    assert status.available is True
+    assert status.version == "rsgain 3.6"
 
 
 async def _fixture_job(session_factory, root: Path, binary: Path) -> tuple[int, object]:
@@ -58,7 +70,10 @@ async def _fixture_job(session_factory, root: Path, binary: Path) -> tuple[int, 
 async def test_runner_streams_output_and_marks_verified_job_success(db, tmp_path: Path):
     settings, _engine, session_factory = db
     script = tmp_path / "fake-rsgain"
-    script.write_text("#!/bin/sh\necho analyzing\necho warning >&2\nexit 0\n")
+    script.write_text(
+        "#!/bin/sh\nprintf '\\033[1;32manalyzing\\033[0m\\n'\n"
+        "printf '\\033[1;31mwarning\\033[0m\\n' >&2\nexit 0\n"
+    )
     script.chmod(0o755)
     settings.rsgain_binary = str(script)
     job_id, _library = await _fixture_job(session_factory, tmp_path / "music", script)
@@ -74,6 +89,8 @@ async def test_runner_streams_output_and_marks_verified_job_success(db, tmp_path
         assert album.state == "processed"
         assert "analyzing" in job.stdout_tail
         assert "warning" in job.stderr_tail
+        assert "\x1b" not in job.stdout_tail
+        assert "\x1b" not in job.stderr_tail
         assert len(logs) == 2
 
 

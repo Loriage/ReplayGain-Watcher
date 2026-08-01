@@ -1,8 +1,10 @@
 # ReplayGain Watcher
 
-ReplayGain Watcher is a small, self-hosted monitor for mounted music libraries. It discovers album directories, waits until their supported audio files stop changing, runs `rsgain easy <album-directory>`, verifies the generated tags, and keeps an auditable job history.
+ReplayGain Watcher is a small, self-hosted monitor for mounted music libraries. It discovers folders containing supported audio files, waits until their imports finish, runs `rsgain easy <folder>`, verifies the generated tags, and keeps an auditable job history.
 
 The application is deliberately monitoring-oriented. It does not edit arbitrary tags, expose audio files, open a general-purpose tag editor, or depend on `rsgain --skip-existing` as its state store.
+
+> **Security warning:** Do not expose this web interface directly to the Internet. ReplayGain Watcher does not provide built-in user authentication. Keep port `3345` on a private network, or place the dashboard behind an authenticated reverse proxy, VPN, or equivalent access control before making it reachable from outside your trusted network.
 
 ## Quick Start
 
@@ -64,7 +66,7 @@ If you are running from a checkout of this repository, replace `image` with `bui
 
 The image is based on Debian trixie because its official repositories provide the `rsgain` package on amd64, armhf, and arm64. The published image targets `linux/amd64`, `linux/arm/v7`, and `linux/arm64`. Verification uses a read-only metadata parser and never writes tags.
 
-The entrypoint applies the selected PUID/PGID, drops privileges before starting the application, and does not mount the Docker socket. Put the dashboard behind your existing authenticated reverse proxy before exposing it outside a trusted network.
+The entrypoint applies the selected PUID/PGID, drops privileges before starting the application, and does not mount the Docker socket. The dashboard must remain behind your existing authenticated reverse proxy, VPN, or private network; do not publish it directly to the Internet.
 
 ## Configuration
 
@@ -83,7 +85,7 @@ Libraries are declared in the startup YAML file. HTTP requests cannot add a path
 | `JOB_TERMINATION_GRACE_SECONDS` | `30` | SIGTERM grace period before SIGKILL |
 | `CONFIG_CHANGE_POLICY` | `mark` | Mark or automatically requeue on config changes |
 | `RECOVERY_POLICY` | `requeue` | Requeue jobs interrupted by restart |
-| `UI_ACTIONS_ENABLED` | `false` | Enable guarded retry/requeue/cancel actions |
+| `UI_ACTIONS_ENABLED` | `true` | Enable guarded scan/retry/requeue/cancel actions; set to `false` for read-only mode |
 | `LOG_RETENTION_DAYS` | `30` | Structured job-log retention |
 | `FOLLOW_SYMLINKS` | `false` | Follow symlinks during scans |
 | `STAY_ON_FILESYSTEM` | `true` | Do not cross filesystem devices |
@@ -93,10 +95,10 @@ The source fingerprint uses sorted relative paths, file sizes, and nanosecond mt
 ## Processing behavior
 
 - A periodic reconciliation is always the source of truth; filesystem events are not required.
-- A new or changed album must contain at least one supported file directly in the album directory.
+- A new or changed folder must contain at least one supported file directly in that folder.
 - Temporary suffixes such as `.part`, `.partial`, `.tmp`, `.download`, `.crdownload`, and `.!qB` postpone processing.
-- A complete album directory is passed to `rsgain`; individual tracks are never queued separately.
-- There is one active job per album, claimed atomically in SQLite before starting the subprocess.
+- A complete folder is passed to `rsgain`; individual tracks are never queued separately.
+- There is one active job per folder, claimed atomically in SQLite before starting the subprocess.
 - stdout and stderr are streamed into structured `JobLog` records, with bounded tails retained on the job.
 - Successful jobs are valid only after every expected file has ReplayGain track gain and, when enabled, album gain.
 - Failed jobs remain visible and do not loop forever. A source change or an explicitly enabled retry can run them again.
@@ -110,6 +112,7 @@ Read-only routes are available under `/api/v1`:
 GET /status
 GET /libraries
 GET /libraries/{id}
+POST /libraries/{id}/scan
 GET /albums
 GET /albums/{id}
 GET /jobs
@@ -117,7 +120,7 @@ GET /jobs/{id}
 GET /jobs/{id}/logs
 ```
 
-Optional actions, hidden unless `UI_ACTIONS_ENABLED=true`, are reconciliation, retry, album requeue, and queued-job cancellation. They require the CSRF cookie/header pair and are rate-limited in-process. Use an authenticated reverse proxy for access control; the application intentionally does not pretend to be an identity provider.
+Guarded actions are available from the dashboard and library pages when `UI_ACTIONS_ENABLED=true`: scan a library, retry a job, requeue a folder, or cancel a queued job. They require the CSRF cookie/header pair and are rate-limited in-process. Set `UI_ACTIONS_ENABLED=false` to keep the UI read-only. Use an authenticated reverse proxy for access control; the application intentionally does not pretend to be an identity provider.
 
 ## Navidrome
 

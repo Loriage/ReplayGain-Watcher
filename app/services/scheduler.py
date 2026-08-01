@@ -33,6 +33,8 @@ class Scheduler:
         self.metrics = metrics
         self._task: asyncio.Task[None] | None = None
         self._trigger = asyncio.Event()
+        self._trigger_all = False
+        self._triggered_library_ids: set[int] = set()
         self._stopping = False
 
     async def start(self) -> None:
@@ -52,8 +54,22 @@ class Scheduler:
             self._task = None
         await self.runner.stop()
 
-    async def trigger(self) -> None:
+    async def trigger(self, library_id: int | None = None) -> None:
+        if library_id is None:
+            self._trigger_all = True
+            self._triggered_library_ids.clear()
+        elif not self._trigger_all:
+            self._triggered_library_ids.add(library_id)
         self._trigger.set()
+
+    def _take_trigger(self) -> int | None | list[int]:
+        if self._trigger_all:
+            self._trigger_all = False
+            self._triggered_library_ids.clear()
+            return None
+        library_ids = sorted(self._triggered_library_ids)
+        self._triggered_library_ids.clear()
+        return library_ids
 
     async def _loop(self) -> None:
         while not self._stopping:
@@ -61,11 +77,18 @@ class Scheduler:
                 await asyncio.wait_for(
                     self._trigger.wait(), timeout=self.settings.reconciliation_interval_seconds
                 )
+                requested_library_ids = self._take_trigger()
             except TimeoutError:
-                pass
+                requested_library_ids = None
             self._trigger.clear()
             try:
-                results = await self.reconciler.reconcile_all()
+                if requested_library_ids is None:
+                    results = await self.reconciler.reconcile_all()
+                else:
+                    results = [
+                        await self.reconciler.reconcile_library(library_id)
+                        for library_id in requested_library_ids
+                    ]
                 for result in results:
                     self.metrics.reconciliation_duration.observe(result.duration_seconds)
                 await self.metrics.refresh(self.session_factory)

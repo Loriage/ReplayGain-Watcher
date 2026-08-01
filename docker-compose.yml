@@ -16,7 +16,7 @@ services:
       - RECONCILIATION_INTERVAL_SECONDS=900
       - SETTLE_SECONDS=300
       - WORKER_CONCURRENCY=1
-      - UI_ACTIONS_ENABLED=false
+      - UI_ACTIONS_ENABLED=true
       - LOG_LEVEL=INFO
     volumes:
       - ./config:/config

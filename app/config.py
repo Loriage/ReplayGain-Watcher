@@ -92,7 +92,7 @@ class Settings(BaseSettings):
     recovery_policy: Literal["requeue", "leave_interrupted"] = "requeue"
     log_retention_days: int = Field(default=30, ge=1, le=3650)
     log_tail_lines: int = Field(default=200, ge=10, le=10000)
-    ui_actions_enabled: bool = False
+    ui_actions_enabled: bool = True
     redact_host_paths: bool = True
     follow_symlinks: bool = False
     stay_on_filesystem: bool = True
