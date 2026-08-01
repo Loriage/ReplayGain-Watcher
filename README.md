@@ -165,9 +165,9 @@ Looking for a Navidrome client on iOS? [Minidisc](https://github.com/Loriage/Min
 
 <p align="center">
   <a href="https://minidisc.dev">
-    <img src="https://minidisc.dev/mockups/home.webp" alt="Minidisc Home screen" width="25%">
-    <img src="https://minidisc.dev/mockups/player.webp" alt="Minidisc player" width="25%">
-    <img src="https://minidisc.dev/mockups/discover.webp" alt="Minidisc Discover screen" width="25%">
-    <img src="https://minidisc.dev/mockups/lidarr-album.webp" alt="Minidisc Lidarr albums screen" width="25%">
+    <img src="https://minidisc.dev/mockups/home.webp" alt="Minidisc Home screen" width="24%">
+    <img src="https://minidisc.dev/mockups/player.webp" alt="Minidisc player" width="24%">
+    <img src="https://minidisc.dev/mockups/discover.webp" alt="Minidisc Discover screen" width="24%">
+    <img src="https://minidisc.dev/mockups/lidarr-album.webp" alt="Minidisc Lidarr albums screen" width="24%">
   </a>
 </p>
