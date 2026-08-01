@@ -18,19 +18,19 @@ Create a `docker-compose.yml`:
 
 ```yaml
 services:
-  replaygain-watcher:
-    image: ghcr.io/loriage/replaygain-watcher:latest
-    restart: unless-stopped
-    ports:
-      - "3345:8080"
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Paris
-    volumes:
-      - ./config:/config
-      - ./data/library-one:/libraries/library-one:rw
-      - ./data/library-two:/libraries/library-two:rw
+    replaygain-watcher:
+        image: ghcr.io/loriage/replaygain-watcher:latest
+        restart: unless-stopped
+        ports:
+            - "3345:8080"
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=Europe/Paris
+        volumes:
+            - ./config:/config
+            - ./data/library-one:/libraries/library-one:rw
+            - ./data/library-two:/libraries/library-two:rw
 ```
 
 Create the host directories before starting:
@@ -45,17 +45,17 @@ Create `config/config.yml`:
 
 ```yaml
 libraries:
-  - name: library-one
-    path: /libraries/library-one
-    enabled: true
-    scan_interval_seconds: 900
-    settle_seconds: 300
+    - name: library-one
+      path: /libraries/library-one
+      enabled: true
+      scan_interval_seconds: 900
+      settle_seconds: 300
 
-  - name: library-two
-    path: /libraries/library-two
-    enabled: true
-    scan_interval_seconds: 900
-    settle_seconds: 300
+    - name: library-two
+      path: /libraries/library-two
+      enabled: true
+      scan_interval_seconds: 900
+      settle_seconds: 300
 ```
 
 The `./config` directory is mounted at `/config` and stores both `config.yml` and the ReplayGain Watcher database. Change only the host-side paths under `./data`; keep `/libraries/library-one` and `/libraries/library-two` in `config/config.yml`.
@@ -78,24 +78,24 @@ The entrypoint applies the selected PUID/PGID, drops privileges before starting 
 
 Libraries are declared in the startup YAML file. HTTP requests cannot add a path or submit a path for processing. Environment settings can tune scan and job behavior:
 
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| `PUID` | `1000` | UID used to run the container process |
-| `PGID` | `1000` | GID used to run the container process |
-| `TZ` | `UTC` | Timezone used for dashboard dates and container log timestamps |
-| `CONFIG_FILE` | `/config/config.yml` | Startup YAML file containing the declared libraries |
-| `DATABASE_URL` | `sqlite+aiosqlite:////config/replaygain-watcher.db` | SQLite database location |
-| `RECONCILIATION_INTERVAL_SECONDS` | `900` | Periodic source-of-truth scan |
-| `SETTLE_SECONDS` | `300` | Required stable interval before queueing |
-| `WORKER_CONCURRENCY` | `1` | Maximum concurrent rsgain jobs |
-| `JOB_TIMEOUT_SECONDS` | `14400` | Maximum analysis duration |
-| `JOB_TERMINATION_GRACE_SECONDS` | `30` | SIGTERM grace period before SIGKILL |
-| `CONFIG_CHANGE_POLICY` | `mark` | Mark or automatically requeue on config changes |
-| `RECOVERY_POLICY` | `requeue` | Requeue jobs interrupted by restart |
-| `UI_ACTIONS_ENABLED` | `true` | Enable guarded scan/retry/requeue/cancel actions; set to `false` for read-only mode |
-| `LOG_RETENTION_DAYS` | `30` | Structured job-log retention |
-| `FOLLOW_SYMLINKS` | `false` | Follow symlinks during scans |
-| `STAY_ON_FILESYSTEM` | `true` | Do not cross filesystem devices |
+| Setting                           | Default                                             | Purpose                                                                             |
+| --------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `PUID`                            | `1000`                                              | UID used to run the container process                                               |
+| `PGID`                            | `1000`                                              | GID used to run the container process                                               |
+| `TZ`                              | `UTC`                                               | Timezone used for dashboard dates and container log timestamps                      |
+| `CONFIG_FILE`                     | `/config/config.yml`                                | Startup YAML file containing the declared libraries                                 |
+| `DATABASE_URL`                    | `sqlite+aiosqlite:////config/replaygain-watcher.db` | SQLite database location                                                            |
+| `RECONCILIATION_INTERVAL_SECONDS` | `900`                                               | Periodic source-of-truth scan                                                       |
+| `SETTLE_SECONDS`                  | `300`                                               | Required stable interval before queueing                                            |
+| `WORKER_CONCURRENCY`              | `1`                                                 | Maximum concurrent rsgain jobs                                                      |
+| `JOB_TIMEOUT_SECONDS`             | `14400`                                             | Maximum analysis duration                                                           |
+| `JOB_TERMINATION_GRACE_SECONDS`   | `30`                                                | SIGTERM grace period before SIGKILL                                                 |
+| `CONFIG_CHANGE_POLICY`            | `mark`                                              | Mark or automatically requeue on config changes                                     |
+| `RECOVERY_POLICY`                 | `requeue`                                           | Requeue jobs interrupted by restart                                                 |
+| `UI_ACTIONS_ENABLED`              | `true`                                              | Enable guarded scan/retry/requeue/cancel actions; set to `false` for read-only mode |
+| `LOG_RETENTION_DAYS`              | `30`                                                | Structured job-log retention                                                        |
+| `FOLLOW_SYMLINKS`                 | `false`                                             | Follow symlinks during scans                                                        |
+| `STAY_ON_FILESYSTEM`              | `true`                                              | Do not cross filesystem devices                                                     |
 
 The source fingerprint uses sorted relative paths, file sizes, and nanosecond mtimes. It does not hash complete audio files during normal reconciliation. After a successful run, the fingerprint is rebuilt because ReplayGain tag writes can change file metadata; this prevents the watcher from reprocessing its own successful write.
 
@@ -161,4 +161,12 @@ ReplayGain Watcher is released under the [MIT License](LICENSE).
 
 ## Minidisc
 
-Looking for a Navidrome client on iOS? Check out [Minidisc](https://github.com/Loriage/Minidisc), an iOS Navidrome client with ReplayGain support.
+Looking for a Navidrome client on iOS? [Minidisc](https://github.com/Loriage/Minidisc) is a native iOS player with ReplayGain support. [See it in action at minidisc.dev](https://minidisc.dev).
+
+<p align="center">
+  <a href="https://minidisc.dev">
+    <img src="https://minidisc.dev/mockups/home.webp" alt="Minidisc Home screen" width="30%">
+    <img src="https://minidisc.dev/mockups/player.webp" alt="Minidisc player" width="30%">
+    <img src="https://minidisc.dev/mockups/discover.webp" alt="Minidisc Discover screen" width="30%">
+  </a>
+</p>
