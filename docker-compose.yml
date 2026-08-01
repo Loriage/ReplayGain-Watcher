@@ -7,23 +7,18 @@ services:
     image: ghcr.io/loriage/replaygain-watcher:latest
     container_name: replaygain-watcher
     restart: unless-stopped
-    user: "1000:1000"
     ports:
-      - "8080:8080"
+      - "3345:8080"
     environment:
-      TZ: Europe/Paris
-      RECONCILIATION_INTERVAL_SECONDS: "900"
-      SETTLE_SECONDS: "300"
-      WORKER_CONCURRENCY: "1"
-      UI_ACTIONS_ENABLED: "false"
-      LOG_LEVEL: INFO
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+      - RECONCILIATION_INTERVAL_SECONDS=900
+      - SETTLE_SECONDS=300
+      - WORKER_CONCURRENCY=1
+      - UI_ACTIONS_ENABLED=false
+      - LOG_LEVEL=INFO
     volumes:
       - ./config:/config
       - ./data/library-one:/libraries/library-one:rw
       - ./data/library-two:/libraries/library-two:rw
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    tmpfs:
-      - /tmp:size=256m,mode=1777
