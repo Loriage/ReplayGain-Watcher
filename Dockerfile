@@ -15,7 +15,10 @@ COPY app ./app
 COPY alembic.ini ./alembic.ini
 COPY alembic ./alembic
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir .
+    && pip install --no-cache-dir . \
+    && rm -rf "$VIRTUAL_ENV"/bin/pip* \
+              "$VIRTUAL_ENV"/lib/python3.13/site-packages/pip \
+              "$VIRTUAL_ENV"/lib/python3.13/site-packages/pip-*.dist-info
 
 FROM python:3.13-slim-trixie
 
@@ -31,6 +34,8 @@ LABEL org.opencontainers.image.title="ReplayGain Watcher" \
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates ffmpeg rsgain tini \
     && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/local/bin/pip* /usr/local/lib/python3.13/site-packages/pip \
+              /usr/local/lib/python3.13/site-packages/pip-*.dist-info \
     && groupadd --gid 1000 app \
     && useradd --uid 1000 --gid app --create-home --shell /usr/sbin/nologin app \
     && mkdir -p /data /app \
