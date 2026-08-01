@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-toolbar">
-  <p class="lede">Declared libraries are scanned automatically. Folders are processed after their imports finish and their files stop changing for {{ container.settings.settle_seconds // 60 }} minutes.</p>
+  <div>
+    <h1>Dashboard</h1>
+    <p class="lede">Declared libraries are scanned automatically. Folders are processed after their imports finish and their files stop changing for {{ container.settings.settle_seconds // 60 }} minutes.</p>
+  </div>
   <form class="action-form" method="post" action="/api/v1/reconciliation" data-admin-action data-success="Scan queued">
     <button type="submit" {% if not container.settings.ui_actions_enabled %}disabled title="UI actions are disabled"{% endif %}>Scan all libraries</button>
     <span class="action-feedback" role="status" aria-live="polite"></span>
