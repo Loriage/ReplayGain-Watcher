@@ -3,7 +3,7 @@
 [![Docker](https://img.shields.io/badge/docker-ghcr.io%2Floriage%2Freplaygain--watcher-blue?logo=docker&logoColor=white)](https://github.com/Loriage/ReplayGain-Watcher/pkgs/container/replaygain-watcher)
 [![Downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fghcr-badge.elias.eu.org%2Fapi%2Floriage%2Freplaygain-watcher%2Freplaygain-watcher&query=downloadCount&label=downloads&logo=docker&color=2496ed)](https://github.com/Loriage/ReplayGain-Watcher/pkgs/container/replaygain-watcher)
 ![GitHub Release](https://img.shields.io/github/v/release/Loriage/ReplayGain-Watcher)
-[![GitHub License](https://img.shields.io/github/license/Loriage/ReplayGain-Watcher)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Build](https://img.shields.io/github/actions/workflow/status/Loriage/ReplayGain-Watcher/ci.yml?label=build)](https://github.com/Loriage/ReplayGain-Watcher/actions/workflows/ci.yml)
 
 ReplayGain Watcher is a small, self-hosted monitor for mounted music libraries. It discovers folders containing supported audio files, waits until their imports finish, runs `rsgain easy <folder>`, verifies the generated tags, and keeps an auditable job history.
